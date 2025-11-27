@@ -36,6 +36,7 @@ end = "2024-04-01"
 
 # Initialize df and df_returns
 df = pd.DataFrame()
+
 for asset in assets:
     raw = yf.download(asset, start=start, end=end, auto_adjust = False)
     df[asset] = raw['Adj Close']
@@ -62,7 +63,9 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
-
+        m = len(assets)
+        weight = 1.0/m
+        self.portfolio_weights[assets] = weight
         """
         TODO: Complete Task 1 Above
         """
@@ -113,13 +116,18 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
-
-
-
+        returns = df.pct_change()
+        data = returns[assets].dropna()
+        volatility = data.rolling(window=self.lookback).std()
+        inverse_volatility = 1.0 / volatility
+        sum_inverse = inverse_volatility.sum(axis = 1) 
+        weights = inverse_volatility.div(sum_inverse, axis=0)
+        weights = weights.shift(1)
+        weights.to_csv("test1.csv", index=True)
+        self.portfolio_weights[assets] = weights
         """
         TODO: Complete Task 2 Above
         """
-
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
 
@@ -190,8 +198,9 @@ class MeanVariancePortfolio:
 
                 # Sample Code: Initialize Decision w and the Objective
                 # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                w = model.addMVar(n, name="w", lb = 0.0)
+                model.setObjective(mu @ w - (gamma / 2) * (w @ Sigma @ w), gp.GRB.MAXIMIZE)
+                model.addConstr(w.sum() == 1, name="Budget")
 
                 """
                 TODO: Complete Task 3 Above
